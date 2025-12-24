@@ -323,4 +323,72 @@ elif menu == "💰 COMPTABILITÉ":
             st.subheader("Dépense (Sortie)")
             with st.form("dep"):
                 mt_d = st.number_input("Montant (GNF)", step=10000, key="md")
-                cat_d = st.selectbox("Type", ["Matériel", "Pharmacie", "Primes
+                cat_d = st.selectbox("Type", ["Matériel", "Pharmacie", "Primes", "Autre"])
+                desc_d = st.text_input("Détail", key="dd")
+                if st.form_submit_button("DÉCAISSER"):
+                    new = {"Date": str(datetime.now().date()), "Type": "Dépense", "Categorie": cat_d, "Description": desc_d, "Montant": mt_d}
+                    st.session_state.finances = pd.concat([st.session_state.finances, pd.DataFrame([new])], ignore_index=True)
+                    st.warning("Dépense notée.")
+
+    with tab_hist:
+        if not df_fin.empty:
+            st.dataframe(df_fin, use_container_width=True)
+        else: st.info("Vide.")
+
+# ==============================================================================
+# MODULE 5 : STOCK
+# ==============================================================================
+elif menu == "📦 STOCK & PHARMA":
+    st.title("GESTION MATÉRIEL")
+    
+    # Alertes rouges
+    def highlight(row):
+        return ['background-color: #ffcccc'] * len(row) if row.Qte <= row.Seuil else [''] * len(row)
+    
+    st.dataframe(df_stk.style.apply(highlight, axis=1), use_container_width=True)
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        st.subheader("Mouvement Stock")
+        item = st.selectbox("Article", df_stk['Item'])
+        idx_s = df_stk[df_stk['Item'] == item].index[0]
+        qty = st.number_input("Quantité", 1, 1000)
+        
+        ca, cb = st.columns(2)
+        if ca.button("➖ SORTIE"): 
+            st.session_state.stock.at[idx_s, 'Qte'] -= qty
+            st.rerun()
+        if cb.button("➕ ENTRÉE"):
+            st.session_state.stock.at[idx_s, 'Qte'] += qty
+            st.rerun()
+            
+    with c2:
+        st.subheader("Nouveau Produit")
+        with st.form("new_prod"):
+            n = st.text_input("Nom")
+            q = st.number_input("Qte Initiale", 0)
+            s = st.number_input("Seuil Alerte", 5)
+            if st.form_submit_button("AJOUTER"):
+                st.session_state.stock = pd.concat([st.session_state.stock, pd.DataFrame([{"Item":n, "Qte":q, "Seuil":s}])], ignore_index=True)
+                st.rerun()
+
+# ==============================================================================
+# MODULE 6 : EXPORT RECHERCHE
+# ==============================================================================
+elif menu == "💾 EXPORT RECHERCHE":
+    st.title("EXTRACTION DE DONNÉES")
+    st.write("Téléchargez les bases pour vos articles scientifiques (Excel / SPSS).")
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        st.subheader("Cohorte Patients")
+        # On retire les images lourdes pour l'export Excel
+        df_export = df_pat.drop(columns=['Image_Radio'])
+        csv_pat = df_export.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 TÉLÉCHARGER (CSV)", csv_pat, "donka_patients.csv", "text/csv")
+        st.caption("Contient : Clinique, Actes, Complications.")
+        
+    with c2:
+        st.subheader("Journal Financier")
+        csv_fin = df_fin.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 TÉLÉCHARGER (CSV)", csv_fin, "donka_finances.csv", "text/csv")
