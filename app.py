@@ -3,298 +3,281 @@ import pandas as pd
 import plotly.express as px
 from datetime import datetime
 
-# --- CONFIGURATION ---
-st.set_page_config(page_title="DONKA INTEGRAL MANAGER", page_icon="🏥", layout="wide")
+# --- CONFIGURATION (MODE LARGE) ---
+st.set_page_config(page_title="DONKA MANAGER HD", page_icon="🏥", layout="wide", initial_sidebar_state="expanded")
 
-# --- STYLE PRO & ALERTE ---
+# --- 🎨 DESIGN SYSTEM "HAUTE DÉFINITION" ---
 st.markdown("""
     <style>
-    .stApp {background-color: #f4f6f9;}
-    .metric-box {background-color: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center;}
-    .big-num {font-size: 24px; font-weight: bold; color: #2c3e50;}
-    .label {font-size: 14px; color: #7f8c8d; text-transform: uppercase;}
-    /* Couleurs Status */
-    .success {color: #27ae60;}
-    .danger {color: #c0392b;}
+    /* 1. AUGMENTATION GLOBALE DE LA TAILLE DU TEXTE */
+    html, body, [class*="css"] {
+        font-family: 'Segoe UI', sans-serif;
+        font-size: 20px !important; /* Texte beaucoup plus gros */
+    }
+    
+    /* 2. FOND ET COULEURS */
+    .stApp {
+        background-color: #f0f2f5; /* Gris très doux (Facebook style) */
+        color: #1c1e21; /* Noir doux */
+    }
+    
+    /* 3. CARTES (CARDS) - DESIGN MODERNE */
+    div[data-testid="metric-container"] {
+        background-color: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        border: 1px solid #ddd;
+    }
+    
+    /* 4. TITRES IMPOSANTS */
+    h1 {
+        color: #0d47a1 !important;
+        font-size: 3rem !important;
+        font-weight: 800 !important;
+        text-transform: uppercase;
+    }
+    h2 {
+        color: #1565c0 !important;
+        font-size: 2.2rem !important;
+        border-bottom: 2px solid #1565c0;
+        padding-bottom: 10px;
+    }
+    h3 {
+        font-size: 1.8rem !important;
+        color: #424242 !important;
+    }
+    
+    /* 5. BOUTONS TACTILES (GROS) */
+    .stButton>button {
+        height: 4em !important; /* Bouton très haut */
+        font-size: 22px !important;
+        border-radius: 12px !important;
+        background-color: #0d47a1;
+        color: white;
+        border: none;
+        box-shadow: 0 4px 0 #002171; /* Effet 3D */
+        transition: all 0.2s;
+    }
+    .stButton>button:active {
+        box-shadow: none;
+        transform: translateY(4px);
+    }
+    
+    /* 6. TABLEAUX LISIBLES */
+    .stDataFrame {
+        font-size: 18px !important;
+    }
+    
+    /* 7. ALERTS ET MESSAGES */
+    .stAlert {
+        font-size: 20px !important;
+        font-weight: 500;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# --- INITIALISATION BASES DE DONNÉES ---
+# --- INITIALISATION BASES ---
 if 'patients' not in st.session_state:
-    st.session_state.patients = pd.DataFrame(columns=[
-        "IPP", "Date_Entree", "Nom", "Age", "Sexe", "Diagnostic", "Acte", "Chirurgien", 
-        "Statut", "Evolution_Notes", "Complications"
-    ])
-
+    st.session_state.patients = pd.DataFrame(columns=["IPP", "Nom", "Age", "Diagnostic", "Acte", "Chirurgien", "Statut", "Evolution", "Complications"])
 if 'finances' not in st.session_state:
-    # Type: Recette ou Dépense
-    st.session_state.finances = pd.DataFrame(columns=["Date", "Type", "Categorie", "Description", "Montant"])
-
+    st.session_state.finances = pd.DataFrame(columns=["Date", "Type", "Categorie", "Montant"])
 if 'stock' not in st.session_state:
-    # Stock initial simulé
     st.session_state.stock = pd.DataFrame([
         {"Item": "Clou Tibial", "Qte": 10, "Seuil": 5},
-        {"Item": "Plaque LCP 4.5", "Qte": 4, "Seuil": 5},
+        {"Item": "Plaque LCP", "Qte": 3, "Seuil": 4},
         {"Item": "Vis Corticale", "Qte": 50, "Seuil": 20},
-        {"Item": "Kit Champ Stérile", "Qte": 100, "Seuil": 15},
-        {"Item": "Bétadine 500ml", "Qte": 12, "Seuil": 10},
+        {"Item": "Kit Champ", "Qte": 100, "Seuil": 15},
     ])
 
-# Raccourcis
 df_pat = st.session_state.patients
 df_fin = st.session_state.finances
 df_stk = st.session_state.stock
 
-# --- SIDEBAR ---
+# --- SIDEBAR XXL ---
 with st.sidebar:
-    st.title("🏥 DONKA MANAGER")
-    st.caption("Système Intégral v5.0")
-    menu = st.radio("Navigation", 
-                    ["📊 VUE D'ENSEMBLE", 
-                     "👤 DOSSIERS & ÉVOLUTION", 
-                     "💰 FINANCE COMPLÈTE", 
-                     "📦 GESTION STOCKS", 
-                     "💾 SAUVEGARDE"])
+    st.title("🏥 CHU DONKA")
+    st.header("PR. LAMAH")
+    st.write("---")
+    # On utilise des gros emojis pour la lisibilité
+    choix = st.radio("NAVIGATION", 
+        ["📊 VUE GLOBALE", "👤 PATIENTS", "💰 COMPTABILITÉ", "📦 STOCK / PHARMA"],
+        index=0)
+    st.write("---")
+    if st.button("🔄 ACTUALISER"):
+        st.rerun()
 
 # ==============================================================================
-# 1. VUE D'ENSEMBLE (Dashboard Hybride)
+# 1. VUE GLOBALE (DASHBOARD HD)
 # ==============================================================================
-if menu == "📊 VUE D'ENSEMBLE":
-    st.title("Tableau de Bord Direction")
+if choix == "📊 VUE GLOBALE":
+    st.title("TABLEAU DE BORD")
     
-    # CALCULS FINANCIERS
-    recettes = df_fin[df_fin['Type'] == "Recette"]['Montant'].sum()
-    depenses = df_fin[df_fin['Type'] == "Dépense"]['Montant'].sum()
-    solde = recettes - depenses
-    
-    # CALCULS MEDICAUX
-    actifs = len(df_pat[df_pat['Statut'].isin(['Hospitalisé', 'Post-Op'])])
-    compliques = len(df_pat[df_pat['Complications'] != 'RAS']) if not df_pat.empty else 0
+    # KPIs en Cartes
+    recettes = df_fin[df_fin['Type']=="Recette"]['Montant'].sum()
+    actifs = len(df_pat[df_pat['Statut'].isin(['Hospitalisé', 'Bloc'])])
+    alertes = len(df_stk[df_stk['Qte'] <= df_stk['Seuil']])
 
-    # AFFICHAGE KPI
-    c1, c2, c3, c4 = st.columns(4)
-    with c1: st.markdown(f"<div class='metric-box'><div class='label'>Patients Actifs</div><div class='big-num'>{actifs}</div></div>", unsafe_allow_html=True)
-    with c2: 
-        color = "danger" if compliques > 0 else "success"
-        st.markdown(f"<div class='metric-box'><div class='label'>Complications</div><div class='big-num {color}'>{compliques}</div></div>", unsafe_allow_html=True)
-    with c3: st.markdown(f"<div class='metric-box'><div class='label'>Recettes Totales</div><div class='big-num success'>+{recettes:,.0f}</div></div>", unsafe_allow_html=True)
-    with c4: st.markdown(f"<div class='metric-box'><div class='label'>Solde (Profit)</div><div class='big-num'>{solde:,.0f} GNF</div></div>", unsafe_allow_html=True)
+    c1, c2, c3 = st.columns(3)
+    c1.metric("PATIENTS ACTIFS", f"{actifs}", "Hospitalisés ce jour")
+    c2.metric("CHIFFRE D'AFFAIRES", f"{recettes:,.0f}", "Francs Guinéens (GNF)")
+    c3.metric("ALERTES STOCK", f"{alertes}", "Commandes urgentes", delta_color="inverse")
 
-    st.markdown("---")
+    st.write("---")
     
+    # Graphiques Larges
     g1, g2 = st.columns(2)
     with g1:
-        st.subheader("Flux Financier")
-        if not df_fin.empty:
-            fig_fin = px.pie(df_fin, names='Type', values='Montant', title="Recettes vs Dépenses", hole=0.5, color_discrete_map={"Recette":"#2ecc71", "Dépense":"#e74c3c"})
-            st.plotly_chart(fig_fin, use_container_width=True)
-        else: st.info("Aucune donnée financière.")
-        
-    with g2:
-        st.subheader("Activité Chirurgicale")
+        st.subheader("📈 Activité du Service")
         if not df_pat.empty:
-            fig_act = px.bar(df_pat, x='Acte', title="Interventions Réalisées")
-            st.plotly_chart(fig_act, use_container_width=True)
-        else: st.info("Aucun patient enregistré.")
+            fig = px.pie(df_pat, names='Acte', title="Types d'interventions", hole=0.4)
+            fig.update_layout(font=dict(size=18)) # Police graphique plus grosse
+            st.plotly_chart(fig, use_container_width=True)
+        else: st.info("Pas encore de patients.")
+    
+    with g2:
+        st.subheader("📉 Finances (Entrées/Sorties)")
+        if not df_fin.empty:
+            fig2 = px.bar(df_fin, x='Type', y='Montant', color='Type', title="Flux Financier")
+            fig2.update_layout(font=dict(size=18))
+            st.plotly_chart(fig2, use_container_width=True)
+        else: st.info("Pas encore de transactions.")
 
 # ==============================================================================
-# 2. DOSSIERS & ÉVOLUTION (Le Cœur Médical)
+# 2. PATIENTS (CARTE D'IDENTITÉ CLINIQUE)
 # ==============================================================================
-elif menu == "👤 DOSSIERS & ÉVOLUTION":
-    st.title("Suivi Clinique Avancé")
+elif choix == "👤 PATIENTS":
+    st.title("GESTION DES MALADES")
     
-    tab1, tab2 = st.tabs(["📝 Nouvelle Admission", "🔍 Suivi & Évolution"])
+    tab1, tab2 = st.tabs(["📝 ADMISSION (NOUVEAU)", "🔍 SUIVI & ÉVOLUTION"])
     
-    # --- AJOUT PATIENT ---
     with tab1:
+        st.subheader("Nouvelle Entrée")
         with st.form("new_pat"):
             c1, c2 = st.columns(2)
             with c1:
-                ipp = st.text_input("IPP")
-                nom = st.text_input("Nom")
-                diag = st.text_area("Diagnostic")
+                ipp = st.text_input("NUMÉRO DOSSIER (IPP)")
+                nom = st.text_input("NOM & PRÉNOM")
+                diag = st.text_area("DIAGNOSTIC", height=100)
             with c2:
-                acte = st.selectbox("Acte", ["Enclouage", "Plaque", "Prothèse", "Fixateur", "Autre"])
-                chir = st.selectbox("Chirurgien", ["Pr Lamah", "Dr Senior", "Dr Samaké", "Autre"])
+                acte = st.selectbox("INTERVENTION PRÉVUE", ["Enclouage", "Plaque Vissée", "Prothèse (PTH/PTG)", "Fixateur Externe", "Autre"])
+                chir = st.selectbox("CHIRURGIEN", ["Pr Léopold Lamah", "Dr Senior", "Dr Samaké", "Autre"])
                 statut = "Hospitalisé"
             
-            if st.form_submit_button("Admettre Patient"):
-                new = {
-                    "IPP": ipp, "Date_Entree": str(datetime.now().date()), "Nom": nom, 
-                    "Age": 0, "Sexe": "M", "Diagnostic": diag, "Acte": acte, 
-                    "Chirurgien": chir, "Statut": statut, 
-                    "Evolution_Notes": f"{datetime.now().strftime('%d/%m')}: Admission au service.",
-                    "Complications": "RAS"
-                }
+            if st.form_submit_button("✅ ENREGISTRER L'ADMISSION"):
+                new = {"IPP": ipp, "Nom": nom, "Age": 0, "Diagnostic": diag, "Acte": acte, "Chirurgien": chir, "Statut": statut, "Evolution": "J0: Admission.", "Complications": "RAS"}
                 st.session_state.patients = pd.concat([st.session_state.patients, pd.DataFrame([new])], ignore_index=True)
-                st.success("Patient admis.")
-
-    # --- SUIVI ÉVOLUTIF (La nouveauté) ---
+                st.success(f"Patient {nom} admis avec succès.")
+    
     with tab2:
-        if df_pat.empty:
-            st.warning("Base vide.")
-        else:
-            pat_list = df_pat['IPP'] + " - " + df_pat['Nom']
-            sel_pat = st.selectbox("Choisir un patient pour le suivi", pat_list)
-            idx = df_pat[df_pat['IPP'] == sel_pat.split(" - ")[0]].index[0]
-            
-            # Affichage Données Actuelles
+        st.subheader("Dossier Médical")
+        if not df_pat.empty:
+            sel = st.selectbox("SÉLECTIONNER UN PATIENT", df_pat['Nom'])
+            idx = df_pat[df_pat['Nom'] == sel].index[0]
             p = df_pat.loc[idx]
-            st.info(f"**Patient :** {p['Nom']} | **Diag:** {p['Diagnostic']} | **Statut:** {p['Statut']}")
             
-            col_evo, col_act = st.columns([2, 1])
+            # Affichage style "Fiche"
+            st.info(f"👤 **{p['Nom']}** | 🩺 {p['Diagnostic']} | 👨‍⚕️ {p['Chirurgien']}")
             
-            with col_evo:
-                st.subheader("📜 Historique d'Évolution")
-                # Zone de lecture seule des notes précédentes
-                st.text_area("Journal Clinique", p['Evolution_Notes'], height=200, disabled=True)
+            c_evo, c_stat = st.columns([2, 1])
+            with c_evo:
+                st.markdown("### 📜 Évolution")
+                # Affichage des notes précédentes (Lecture seule)
+                st.text_area("Historique", p['Evolution'], height=200, disabled=True)
                 
-                # Ajout nouvelle note
-                new_note = st.text_input("➕ Ajouter une note du jour (Ex: J3, ablation redon, T°37)")
-                if st.button("Ajouter au Journal"):
-                    timestamp = datetime.now().strftime("%d/%m %Hh")
-                    entry = f"\n[{timestamp}] {new_note}"
-                    st.session_state.patients.at[idx, 'Evolution_Notes'] += entry
+                # Ajout Note
+                nouv_note = st.text_input("✍️ Ajouter une note du jour")
+                if st.button("AJOUTER NOTE"):
+                    timestamp = datetime.now().strftime("%d/%m")
+                    st.session_state.patients.at[idx, 'Evolution'] += f"\n[{timestamp}] {nouv_note}"
                     st.success("Note ajoutée.")
                     st.rerun()
-
-            with col_act:
-                st.subheader("⚠️ Complications & Statut")
-                
-                # Gestion Complications
+            
+            with c_stat:
+                st.markdown("### ⚠️ Alertes")
+                # Complications
                 curr_comp = p['Complications']
-                new_comp = st.selectbox("Déclarer Complication", ["RAS", "Infection Site Op", "Thrombose/Phlébite", "Escarre", "Lâchage Suture", "Choc"], index=0 if curr_comp=="RAS" else 0)
-                if new_comp != "RAS" and new_comp != curr_comp:
+                new_comp = st.selectbox("Complication ?", ["RAS", "Infection", "Thrombose", "Choc"], index=0 if curr_comp=="RAS" else 0)
+                if new_comp != curr_comp and new_comp != "RAS":
                     st.session_state.patients.at[idx, 'Complications'] = new_comp
-                    st.error(f"Complication {new_comp} enregistrée !")
+                    st.error("Complication enregistrée !")
                 
                 if curr_comp != "RAS":
-                    st.error(f"ACTIVE : {curr_comp}")
+                    st.error(f"EN COURS : {curr_comp}")
                 else:
-                    st.success("Aucune complication active.")
-
-                st.divider()
-                # Mise à jour statut
-                new_stat = st.selectbox("Nouveau Statut", ["Hospitalisé", "Bloc", "SSPI", "Sortie", "Consolidé", "Décès"], index=["Hospitalisé", "Bloc", "SSPI", "Sortie", "Consolidé", "Décès"].index(p['Statut']) if p['Statut'] in ["Hospitalisé", "Bloc", "SSPI", "Sortie", "Consolidé", "Décès"] else 0)
-                if st.button("Mettre à jour Statut"):
-                    st.session_state.patients.at[idx, 'Statut'] = new_stat
-                    st.success("Statut modifié.")
-                    st.rerun()
+                    st.success("État stable.")
 
 # ==============================================================================
-# 3. FINANCE COMPLÈTE (Recettes & Dépenses)
+# 3. COMPTABILITÉ (CLAIRE & NETTE)
 # ==============================================================================
-elif menu == "💰 FINANCE COMPLÈTE":
-    st.title("Comptabilité du Service")
+elif choix == "💰 COMPTABILITÉ":
+    st.title("FINANCES DU SERVICE")
     
-    t1, t2 = st.tabs(["📝 Saisie Mouvement", "📒 Grand Livre"])
+    c1, c2 = st.columns(2)
+    with c1:
+        st.subheader("➕ Encaisser (Recette)")
+        with st.form("recette"):
+            montant_r = st.number_input("MONTANT (GNF)", step=50000)
+            motif_r = st.text_input("MOTIF (Nom Patient)")
+            if st.form_submit_button("VALIDER ENCAISSEMENT"):
+                new_f = {"Date": str(datetime.now().date()), "Type": "Recette", "Categorie": "Patient", "Montant": montant_r}
+                st.session_state.finances = pd.concat([st.session_state.finances, pd.DataFrame([new_f])], ignore_index=True)
+                st.success("Caisse mise à jour.")
     
-    with t1:
-        with st.form("fin_form"):
-            c1, c2 = st.columns(2)
-            with c1:
-                m_type = st.radio("Type de Mouvement", ["Recette (Entrée)", "Dépense (Sortie)"], horizontal=True)
-                date_op = st.date_input("Date", datetime.now())
-                montant = st.number_input("Montant (GNF)", min_value=0, step=10000)
-            with c2:
-                if m_type == "Recette (Entrée)":
-                    cat = st.selectbox("Catégorie", ["Paiement Patient", "Subvention", "Don", "Autre"])
-                else:
-                    cat = st.selectbox("Catégorie", ["Achat Matériel", "Pharmacie", "Salaires/Primes", "Maintenance", "Restauration", "Autre"])
-                
-                desc = st.text_input("Description (Ex: Nom Patient ou Facture Fournisseur)")
-            
-            if st.form_submit_button("Enregistrer Mouvement"):
-                new_fin = {"Date": str(date_op), "Type": m_type.split(" ")[0], "Categorie": cat, "Description": desc, "Montant": montant}
-                st.session_state.finances = pd.concat([st.session_state.finances, pd.DataFrame([new_fin])], ignore_index=True)
-                st.success("Enregistré.")
-    
-    with t2:
-        st.subheader("Historique des Opérations")
-        # Colorer les montants
-        def color_type(val):
-            color = 'green' if val == 'Recette' else 'red'
-            return f'color: {color}'
-        
-        if not df_fin.empty:
-            st.dataframe(df_fin.style.map(color_type, subset=['Type']), use_container_width=True)
-            
-            # Bilan rapide
-            tot_rec = df_fin[df_fin['Type'] == "Recette"]['Montant'].sum()
-            tot_dep = df_fin[df_fin['Type'] == "Dépense"]['Montant'].sum()
-            st.metric("SOLDE DE CAISSE", f"{tot_rec - tot_dep:,.0f} GNF", delta=f"R: {tot_rec} | D: {tot_dep}")
-        else:
-            st.info("Aucune transaction.")
+    with c2:
+        st.subheader("➖ Dépenser (Sortie)")
+        with st.form("depense"):
+            montant_d = st.number_input("MONTANT (GNF)", step=10000)
+            motif_d = st.selectbox("CATÉGORIE", ["Achat Matériel", "Pharmacie", "Primes", "Réparations", "Autre"])
+            if st.form_submit_button("VALIDER DÉPENSE"):
+                new_f = {"Date": str(datetime.now().date()), "Type": "Dépense", "Categorie": motif_d, "Montant": montant_d}
+                st.session_state.finances = pd.concat([st.session_state.finances, pd.DataFrame([new_f])], ignore_index=True)
+                st.warning("Dépense enregistrée.")
+
+    st.write("---")
+    st.subheader("📒 Journal des Opérations")
+    if not df_fin.empty:
+        st.dataframe(df_fin, use_container_width=True)
 
 # ==============================================================================
-# 4. GESTION STOCKS (Entrées/Sorties)
+# 4. STOCK (ALERTES VISUELLES)
 # ==============================================================================
-elif menu == "📦 GESTION STOCKS":
-    st.title("Pharmacie & Matériel")
+elif choix == "📦 STOCK / PHARMA":
+    st.title("GESTION DU MATÉRIEL")
     
-    col_list, col_act = st.columns([2, 1])
+    # Affichage avec code couleur automatique
+    st.write("Les lignes en **ROUGE** indiquent un stock critique.")
     
-    with col_list:
-        st.subheader("État du Stock")
-        # Alerte visuelle stock bas
-        st.dataframe(df_stk.style.highlight_between(left=0, right=df_stk['Seuil'], subset=['Qte'], color='#ffcccc'), use_container_width=True)
-        
-        # Liste des alertes
-        alertes = df_stk[df_stk['Qte'] <= df_stk['Seuil']]
-        if not alertes.empty:
-            st.error("⚠️ COMMANDE NÉCESSAIRE :")
-            st.table(alertes[['Item', 'Qte']])
+    def highlight_critical(row):
+        if row.Qte <= row.Seuil:
+            return ['background-color: #ffcccc; color: #990000; font-weight: bold'] * len(row)
+        return [''] * len(row)
 
-    with col_act:
-        st.subheader("Mise à Jour")
-        
-        # Sélection item
+    st.dataframe(df_stk.style.apply(highlight_critical, axis=1), use_container_width=True)
+    
+    st.write("---")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.subheader("Mise à jour Stock")
         item = st.selectbox("Article", df_stk['Item'])
         idx_s = df_stk[df_stk['Item'] == item].index[0]
-        current_q = df_stk.at[idx_s, 'Qte']
+        qty = st.number_input("Quantité", 1, 100)
         
-        st.write(f"Stock actuel : **{current_q}**")
-        
-        action = st.radio("Action", ["Sortie (Utilisation)", "Entrée (Livraison)"])
-        qty = st.number_input("Quantité", 1, 1000, 1)
-        
-        if st.button("Valider Mouvement"):
-            if action == "Sortie (Utilisation)":
-                if current_q >= qty:
-                    st.session_state.stock.at[idx_s, 'Qte'] -= qty
-                    st.success(f"Sortie de {qty} {item}.")
-                else:
-                    st.error("Stock insuffisant !")
-            else:
-                st.session_state.stock.at[idx_s, 'Qte'] += qty
-                st.success(f"Entrée de {qty} {item}.")
+        col_a, col_b = st.columns(2)
+        if col_a.button("➖ SORTIR (UTILISÉ)"):
+            st.session_state.stock.at[idx_s, 'Qte'] -= qty
+            st.rerun()
+        if col_b.button("➕ ENTRER (LIVRÉ)"):
+            st.session_state.stock.at[idx_s, 'Qte'] += qty
             st.rerun()
 
-        st.divider()
-        with st.expander("Créer nouvel article"):
-            new_item = st.text_input("Nom Article")
-            new_init = st.number_input("Stock Initial", 0)
-            new_seuil = st.number_input("Seuil Alerte", 0)
-            if st.button("Créer Article"):
-                new_row = {"Item": new_item, "Qte": new_init, "Seuil": new_seuil}
-                st.session_state.stock = pd.concat([st.session_state.stock, pd.DataFrame([new_row])], ignore_index=True)
-                st.success("Article créé.")
-                st.rerun()
-
-# ==============================================================================
-# 5. EXPORT
-# ==============================================================================
-elif menu == "💾 SAUVEGARDE":
-    st.title("Export Données")
-    st.write("Téléchargez vos registres.")
-    
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        csv_p = df_pat.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 PATIENTS (CSV)", csv_p, "patients.csv")
     with c2:
-        csv_f = df_fin.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 FINANCES (CSV)", csv_f, "finances.csv")
-    with c3:
-        csv_s = df_stk.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 STOCK (CSV)", csv_s, "stock.csv")
+        st.info("ℹ️ Pour ajouter un nouvel article (ex: Prothèse), utilisez le bouton ci-dessous.")
+        with st.expander("Créer nouvel article"):
+            n_item = st.text_input("Nom")
+            n_qte = st.number_input("Stock départ", 0)
+            n_seuil = st.number_input("Seuil alerte", 5)
+            if st.button("CRÉER"):
+                new_s = {"Item": n_item, "Qte": n_qte, "Seuil": n_seuil}
+                st.session_state.stock = pd.concat([st.session_state.stock, pd.DataFrame([new_s])], ignore_index=True)
+                st.rerun()
