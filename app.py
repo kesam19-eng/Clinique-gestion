@@ -188,4 +188,67 @@ elif menu == "👤 GESTION PATIENTS":
         if not df_pat.empty:
             sel = st.selectbox("Patient Image", df_pat['Nom'] + " (" + df_pat['IPP'] + ")", key="img_sel")
             idx = df_pat[df_pat['IPP'] == sel.split("(")[1][:-1]].index[0]
-            src = st.radio("Source", ["Caméra", "Fichier"], horizontal
+            src = st.radio("Source", ["Caméra", "Fichier"], horizontal=True)
+            img = st.camera_input("Photo") if src == "Caméra" else st.file_uploader("Fichier")
+            if img and st.button("SAUVEGARDER IMAGE"):
+                st.session_state.patients.at[idx, 'Image_Radio'] = image_to_base64(img)
+                st.success("Sauvegardé")
+                st.rerun()
+            curr = df_pat.at[idx, 'Image_Radio']
+            if curr: st.image(curr)
+
+# 3. RAPPORTS
+elif menu == "✍️ RAPPORTS & PRINT":
+    st.title("GÉNÉRATEUR CRO")
+    if not df_pat.empty:
+        sel = st.selectbox("Patient", df_pat['Nom'])
+        idx = df_pat[df_pat['Nom'] == sel].index[0]
+        p = df_pat.loc[idx]
+        tmpl = f"""CHU DONKA - PR LAMAH\nCRO: {p['Nom']} ({p['IPP']})\nDATE: {datetime.now().strftime('%d/%m/%Y')}\nACTE: {p['Acte']}\nCHIRURGIEN: {p['Chirurgien']}\n\nDESCRIPTION:\nIncision classique. Réduction foyer. Synthèse par {p['Acte']}.\nContrôle OK.\n\nSUITES:\nSimples."""
+        txt = st.text_area("Éditer", tmpl, height=300)
+        st.download_button("TÉLÉCHARGER", txt, file_name=f"CRO_{p['IPP']}.txt")
+
+# 4. COMPTA
+elif menu == "💰 COMPTABILITÉ":
+    st.title("FINANCES")
+    t1, t2 = st.tabs(["SAISIE", "JOURNAL"])
+    with t1:
+        c1, c2 = st.columns(2)
+        with c1:
+            with st.form("r"):
+                m = st.number_input("Recette (GNF)", step=50000)
+                if st.form_submit_button("ENCAISSER"):
+                    st.session_state.finances = pd.concat([st.session_state.finances, pd.DataFrame([{"Date":str(datetime.now().date()), "Type":"Recette", "Montant":m}])], ignore_index=True)
+                    st.success("OK")
+        with c2:
+            with st.form("d"):
+                m = st.number_input("Dépense (GNF)", step=10000)
+                if st.form_submit_button("DÉCAISSER"):
+                    st.session_state.finances = pd.concat([st.session_state.finances, pd.DataFrame([{"Date":str(datetime.now().date()), "Type":"Dépense", "Montant":m}])], ignore_index=True)
+                    st.warning("OK")
+    with t2:
+        if not df_fin.empty: st.dataframe(df_fin, use_container_width=True)
+
+# 5. STOCK
+elif menu == "📦 STOCK & PHARMA":
+    st.title("STOCK")
+    st.dataframe(df_stk.style.apply(lambda x: ['background-color: #ffcccc']*len(x) if x.Qte <= x.Seuil else ['']*len(x), axis=1), use_container_width=True)
+    item = st.selectbox("Article", df_stk['Item'])
+    idx = df_stk[df_stk['Item']==item].index[0]
+    q = st.number_input("Qté", 1, 100)
+    c1, c2 = st.columns(2)
+    if c1.button("SORTIE"): 
+        st.session_state.stock.at[idx, 'Qte'] -= q
+        st.rerun()
+    if c2.button("ENTRÉE"):
+        st.session_state.stock.at[idx, 'Qte'] += q
+        st.rerun()
+
+# 6. EXPORT
+elif menu == "💾 EXPORT RECHERCHE":
+    st.title("EXPORT")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.download_button("CSV PATIENTS", df_pat.drop(columns=['Image_Radio']).to_csv(index=False).encode('utf-8'), "pat.csv", "text/csv")
+    with c2:
+        st.download_button("CSV FINANCES", df_fin.to_csv(index=False).encode('utf-8'), "fin.csv", "text/csv")
