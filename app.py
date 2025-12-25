@@ -1,254 +1,232 @@
 import streamlit as st
-import pandas as pd
-import plotly.express as px
-from datetime import datetime
+import google.generativeai as genai
 from PIL import Image
-import base64
-import io
 import time
 
-# --- 1. CONFIGURATION INITIALE ---
-st.set_page_config(page_title="DONKA MANAGER SECURE", page_icon="🔒", layout="wide", initial_sidebar_state="collapsed")
-
-# --- 2. GESTION DE LA SÉCURITÉ (LOGIN SYSTEM) ---
-
-# Initialisation de l'état de connexion
-if 'authenticated' not in st.session_state:
-    st.session_state.authenticated = False
-
-def check_password():
-    """Vérifie le mot de passe"""
-    # ==========================================
-    # 🔑 LE MOT DE PASSE EST ICI (Change-le !)
-    # ==========================================
-    SECRET_PASSWORD = "DONKA2025" 
-    
-    if st.session_state.password_input == SECRET_PASSWORD:
-        st.session_state.authenticated = True
-        del st.session_state.password_input # On efface le mdp de la mémoire pour sécurité
-    else:
-        st.error("⛔ Mot de passe incorrect")
-
-# --- ÉCRAN DE CONNEXION (Si pas connecté) ---
-if not st.session_state.authenticated:
-    st.markdown("""
-        <style>
-        .stApp {background-color: #0d47a1;} /* Fond Bleu Donka */
-        .login-box {
-            background-color: white; padding: 40px; border-radius: 15px; 
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2); text-align: center;
-            max-width: 500px; margin: 100px auto;
-        }
-        h1 {color: #0d47a1; font-family: 'Segoe UI', sans-serif;}
-        .stTextInput>div>div>input {text-align: center; font-size: 20px;}
-        .stButton>button {width: 100%; background-color: #0d47a1; color: white; height: 3em; font-size: 18px;}
-        </style>
-    """, unsafe_allow_html=True)
-    
-    st.markdown(f"""
-        <div class="login-box">
-            <h1>🏥 CHU DONKA</h1>
-            <h3>TRAUMATO-ORTHOPÉDIE</h3>
-            <p>Espace Numérique Sécurisé - Pr. LAMAH</p>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns([1,1,1])
-    with col2:
-        st.text_input("🔒 Entrez le Code d'Accès", type="password", key="password_input", on_change=check_password)
-        if st.button("SE CONNECTER"):
-            check_password()
-            
-    st.stop() # 🛑 ARRÊTE TOUT ICI SI PAS CONNECTÉ
-
 # ==============================================================================
-# 🟢 DÉBUT DE L'APPLICATION (VISIBLE SEULEMENT SI CONNECTÉ)
+# 1. CONFIGURATION & DESIGN (MODE HD)
 # ==============================================================================
+st.set_page_config(page_title="SAMProb Expert", page_icon="🧬", layout="wide", initial_sidebar_state="collapsed")
 
-# --- STYLE VISUEL (MODE HD) ---
+# --- DESIGN SYSTÈME MÉDICAL ---
 st.markdown("""
     <style>
-    html, body, [class*="css"] { font-family: 'Segoe UI', sans-serif; font-size: 18px !important; color: #000000 !important; }
-    .stApp { background-color: #ffffff; }
-    h1 { color: #0d47a1 !important; font-size: 2.5rem !important; text-transform: uppercase; border-bottom: 2px solid #0d47a1; padding-bottom: 10px; }
-    h2, h3 { color: #1565c0 !important; }
-    div[data-testid="metric-container"] { background-color: #f8f9fa; border: 1px solid #ddd; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-    .stButton>button { height: 3.5em !important; font-size: 20px !important; border-radius: 8px !important; background-color: #0d47a1; color: white; border: none; width: 100%; margin-top: 10px; }
-    .stDataFrame { font-size: 16px !important; }
-    .stTabs [data-baseweb="tab"] { font-size: 20px !important; font-weight: bold; }
+    /* TYPOGRAPHIE ET LISIBILITÉ */
+    html, body, [class*="css"] { font-family: 'Segoe UI', sans-serif; font-size: 18px !important; color: #1e1e1e !important; }
+    .stApp { background-color: #f8f9fa; }
+    
+    /* EN-TÊTES */
+    h1 { color: #2e7d32 !important; font-size: 2.5rem !important; border-bottom: 2px solid #2e7d32; text-transform: uppercase; }
+    h2, h3 { color: #1b5e20 !important; }
+    
+    /* ZONES DE RÉPONSE IA */
+    .ai-box {
+        background-color: #ffffff; 
+        border-left: 5px solid #2e7d32; 
+        padding: 20px; 
+        border-radius: 8px; 
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
+    }
+    
+    /* BOUTONS TACTILES */
+    .stButton>button { 
+        height: 3.5em !important; 
+        font-size: 20px !important; 
+        border-radius: 8px !important; 
+        font-weight: bold;
+        border: none;
+        width: 100%;
+    }
+    /* Bouton principal vert médical */
+    .stButton>button { background-color: #2e7d32; color: white; }
+    
+    /* ALERTE URGENCE */
+    .urgence-box { background-color: #ffebee; border: 2px solid #c62828; color: #c62828; padding: 15px; border-radius: 8px; font-weight: bold; text-align: center; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- FONCTIONS ---
-def image_to_base64(image_file):
-    if image_file is not None:
+# ==============================================================================
+# 2. SÉCURITÉ (LOGIN)
+# ==============================================================================
+if 'auth_sam' not in st.session_state: st.session_state.auth_sam = False
+
+def check_login():
+    # MOT DE PASSE : SAMPROB2025
+    if st.session_state.pwd_sam == "SAMPROB2025":
+        st.session_state.auth_sam = True
+        del st.session_state.pwd_sam
+    else: st.error("Accès Refusé")
+
+if not st.session_state.auth_sam:
+    st.markdown("<br><br><h1 style='text-align:center'>🧬 SAMProb</h1><h3 style='text-align:center'>SYSTEME D'AIDE MEDICALE</h3>", unsafe_allow_html=True)
+    c1, c2, c3 = st.columns([1,2,1])
+    with c2:
+        st.text_input("CODE D'ACTIVATION", type="password", key="pwd_sam", on_change=check_login)
+        st.button("INITIALISER LE SYSTÈME", on_click=check_login)
+    st.stop()
+
+# ==============================================================================
+# 3. MOTEUR INTELLIGENCE (GEMINI)
+# ==============================================================================
+class Brain:
+    def __init__(self):
+        self.model = None
+        self.api_valid = False
+
+    def connect(self, key):
         try:
-            bytes_data = image_file.getvalue()
-            b64 = base64.b64encode(bytes_data).decode()
-            return f"data:image/png;base64,{b64}"
-        except: return None
-    return None
+            genai.configure(api_key=key)
+            self.model = genai.GenerativeModel('gemini-1.5-flash')
+            self.api_valid = True
+            return True
+        except: return False
 
-# --- BASES DE DONNÉES ---
-if 'patients' not in st.session_state:
-    st.session_state.patients = pd.DataFrame(columns=["IPP", "Nom", "Age", "Sexe", "Diagnostic", "Acte", "Chirurgien", "Date_Entree", "Statut", "Evolution", "Complications", "Image_Radio", "Rapport_CRO"])
-if 'finances' not in st.session_state:
-    st.session_state.finances = pd.DataFrame(columns=["Date", "Type", "Categorie", "Description", "Montant"])
-if 'stock' not in st.session_state:
-    st.session_state.stock = pd.DataFrame([{"Item": "Clou Tibial", "Qte": 10, "Seuil": 5}, {"Item": "Plaque LCP", "Qte": 3, "Seuil": 4}, {"Item": "Vis Corticale", "Qte": 50, "Seuil": 20}, {"Item": "Kit Champ Stérile", "Qte": 100, "Seuil": 15}, {"Item": "Bétadine", "Qte": 12, "Seuil": 10}])
+    def analyze(self, prompt, image=None):
+        if not self.api_valid: return "⚠️ ERREUR : Clé API non connectée (Voir Menu)."
+        
+        # PROMPT SYSTÈME : RÔLE DE CHEF DE CLINIQUE
+        sys_prompt = """Tu es SAMProb, un assistant expert en Chirurgie et Médecine d'Urgence au CHU Donka.
+        Tes réponses doivent être structurées comme un avis médical senior :
+        1. 🔬 HYPOTHÈSES DIAGNOSTIQUES (Probabilités)
+        2. 📝 BILAN À DEMANDER (Examens complémentaires)
+        3. 💊 CONDUITE À TENIR (Traitement immédiat)
+        Sois concis, direct et professionnel."""
+        
+        try:
+            content = [sys_prompt, prompt]
+            if image: content.append(image)
+            response = self.model.generate_content(content)
+            return response.text
+        except Exception as e: return f"Erreur réseau : {e}"
 
-df_pat = st.session_state.patients
-df_fin = st.session_state.finances
-df_stk = st.session_state.stock
+if 'brain' not in st.session_state: st.session_state.brain = Brain()
 
-# --- SIDEBAR (NAVIGATION) ---
+# ==============================================================================
+# 4. INTERFACE PRINCIPALE
+# ==============================================================================
 with st.sidebar:
-    st.title("🏥 CHU DONKA")
-    st.caption("Connecté en tant que Pr. LAMAH")
+    st.title("🧬 SAMProb V2")
+    st.caption("Dr. SAMAKÉ")
     st.write("---")
-    menu = st.radio("MENU", ["📊 VUE GLOBALE", "👤 GESTION PATIENTS", "✍️ RAPPORTS & PRINT", "💰 COMPTABILITÉ", "📦 STOCK & PHARMA", "💾 EXPORT RECHERCHE"])
+    menu = st.radio("MODULES", ["💬 AVIS MÉDICAL (IA)", "👁️ ANALYSE VISUELLE", "🧮 CALCULATEURS", "⚡ PROTOCOLES URGENCE", "⚙️ CONFIGURATION"])
     st.write("---")
-    if st.button("🔒 DÉCONNEXION"):
-        st.session_state.authenticated = False
+    if st.button("🔒 VERROUILLER"):
+        st.session_state.auth_sam = False
         st.rerun()
 
-# --- MODULES DE L'APP ---
-
-# 1. VUE GLOBALE
-if menu == "📊 VUE GLOBALE":
-    st.title("TABLEAU DE BORD")
-    rec = df_fin[df_fin['Type']=="Recette"]['Montant'].sum()
-    dep = df_fin[df_fin['Type']=="Dépense"]['Montant'].sum()
-    act = len(df_pat[df_pat['Statut'].isin(['Hospitalisé', 'Bloc', 'Post-Op'])])
-    alt = len(df_stk[df_stk['Qte'] <= df_stk['Seuil']])
+# --- MODULE 1 : AVIS MÉDICAL ---
+if menu == "💬 AVIS MÉDICAL (IA)":
+    st.title("CONSULTATION IA")
+    st.info("Décrivez le cas clinique. SAMProb structure la réponse.")
     
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("PATIENTS ACTIFS", act, "Lits occupés")
-    c2.metric("SOLDE CAISSE", f"{rec-dep:,.0f}", "GNF")
-    c3.metric("ALERTES STOCK", alt, "Critiques", delta_color="inverse")
-    c4.metric("TOTAL DOSSIERS", len(df_pat), "Base")
+    # Historique de chat simplifié pour la clarté
+    if 'history' not in st.session_state: st.session_state.history = []
     
-    st.markdown("---")
-    g1, g2 = st.columns(2)
-    with g1:
-        st.subheader("Activité")
-        if not df_pat.empty:
-            st.plotly_chart(px.pie(df_pat, names='Acte', hole=0.4), use_container_width=True)
-        else: st.info("Aucune donnée")
-    with g2:
-        st.subheader("Complications Actives")
-        if not df_pat.empty:
-            comp = df_pat[df_pat['Complications'] != "RAS"]
-            if not comp.empty: st.dataframe(comp[['Nom', 'Complications']], use_container_width=True)
-            else: st.success("RAS")
-
-# 2. PATIENTS
-elif menu == "👤 GESTION PATIENTS":
-    st.title("DOSSIERS CLINIQUES")
-    t1, t2, t3 = st.tabs(["ADMISSION", "SUIVI", "IMAGERIE"])
-    
-    with t1:
-        with st.form("adm"):
-            c1, c2 = st.columns(2)
-            with c1:
-                ipp = st.text_input("IPP")
-                nom = st.text_input("Nom")
-                age = st.number_input("Age", 0, 120, 30)
-                sexe = st.radio("Sexe", ["M","F"], horizontal=True)
-            with c2:
-                diag = st.text_area("Diag")
-                acte = st.selectbox("Acte", ["Enclouage", "Plaque", "Prothèse", "Fixateur", "Autre"])
-                chir = st.selectbox("Chirurgien", ["Pr Lamah", "Dr Senior", "Dr Samaké", "Autre"])
-            if st.form_submit_button("ENREGISTRER") and ipp:
-                new = {"IPP": ipp, "Nom": nom, "Age": age, "Sexe": sexe, "Diagnostic": diag, "Acte": acte, "Chirurgien": chir, "Date_Entree": str(datetime.now().date()), "Statut": "Hospitalisé", "Evolution": "J0: Entrée.", "Complications": "RAS", "Image_Radio": None, "Rapport_CRO": ""}
-                st.session_state.patients = pd.concat([st.session_state.patients, pd.DataFrame([new])], ignore_index=True)
-                st.success("OK")
-    
-    with t2:
-        if not df_pat.empty:
-            sel = st.selectbox("Patient", df_pat['Nom'] + " (" + df_pat['IPP'] + ")")
-            idx = df_pat[df_pat['IPP'] == sel.split("(")[1][:-1]].index[0]
-            p = df_pat.loc[idx]
-            st.info(f"{p['Nom']} | {p['Diagnostic']}")
-            c1, c2 = st.columns([2,1])
-            with c1:
-                st.text_area("Histo", p['Evolution'], height=200, disabled=True)
-                n = st.text_input("Note")
-                if st.button("AJOUTER") and n:
-                    st.session_state.patients.at[idx, 'Evolution'] += f"\n[{datetime.now().strftime('%d/%m')}] {n}"
-                    st.rerun()
-            with c2:
-                comp = st.selectbox("Complication", ["RAS", "Infection", "Thrombose", "Choc"], index=0 if p['Complications']=="RAS" else 0)
-                if comp != p['Complications']:
-                    st.session_state.patients.at[idx, 'Complications'] = comp
-                    st.rerun()
-                if comp != "RAS": st.error(comp)
-    
-    with t3:
-        if not df_pat.empty:
-            sel = st.selectbox("Patient Image", df_pat['Nom'] + " (" + df_pat['IPP'] + ")", key="img_sel")
-            idx = df_pat[df_pat['IPP'] == sel.split("(")[1][:-1]].index[0]
-            src = st.radio("Source", ["Caméra", "Fichier"], horizontal=True)
-            img = st.camera_input("Photo") if src == "Caméra" else st.file_uploader("Fichier")
-            if img and st.button("SAUVEGARDER IMAGE"):
-                st.session_state.patients.at[idx, 'Image_Radio'] = image_to_base64(img)
-                st.success("Sauvegardé")
-                st.rerun()
-            curr = df_pat.at[idx, 'Image_Radio']
-            if curr: st.image(curr)
-
-# 3. RAPPORTS
-elif menu == "✍️ RAPPORTS & PRINT":
-    st.title("GÉNÉRATEUR CRO")
-    if not df_pat.empty:
-        sel = st.selectbox("Patient", df_pat['Nom'])
-        idx = df_pat[df_pat['Nom'] == sel].index[0]
-        p = df_pat.loc[idx]
-        tmpl = f"""CHU DONKA - PR LAMAH\nCRO: {p['Nom']} ({p['IPP']})\nDATE: {datetime.now().strftime('%d/%m/%Y')}\nACTE: {p['Acte']}\nCHIRURGIEN: {p['Chirurgien']}\n\nDESCRIPTION:\nIncision classique. Réduction foyer. Synthèse par {p['Acte']}.\nContrôle OK.\n\nSUITES:\nSimples."""
-        txt = st.text_area("Éditer", tmpl, height=300)
-        st.download_button("TÉLÉCHARGER", txt, file_name=f"CRO_{p['IPP']}.txt")
-
-# 4. COMPTA
-elif menu == "💰 COMPTABILITÉ":
-    st.title("FINANCES")
-    t1, t2 = st.tabs(["SAISIE", "JOURNAL"])
-    with t1:
-        c1, c2 = st.columns(2)
-        with c1:
-            with st.form("r"):
-                m = st.number_input("Recette (GNF)", step=50000)
-                if st.form_submit_button("ENCAISSER"):
-                    st.session_state.finances = pd.concat([st.session_state.finances, pd.DataFrame([{"Date":str(datetime.now().date()), "Type":"Recette", "Montant":m}])], ignore_index=True)
-                    st.success("OK")
-        with c2:
-            with st.form("d"):
-                m = st.number_input("Dépense (GNF)", step=10000)
-                if st.form_submit_button("DÉCAISSER"):
-                    st.session_state.finances = pd.concat([st.session_state.finances, pd.DataFrame([{"Date":str(datetime.now().date()), "Type":"Dépense", "Montant":m}])], ignore_index=True)
-                    st.warning("OK")
-    with t2:
-        if not df_fin.empty: st.dataframe(df_fin, use_container_width=True)
-
-# 5. STOCK
-elif menu == "📦 STOCK & PHARMA":
-    st.title("STOCK")
-    st.dataframe(df_stk.style.apply(lambda x: ['background-color: #ffcccc']*len(x) if x.Qte <= x.Seuil else ['']*len(x), axis=1), use_container_width=True)
-    item = st.selectbox("Article", df_stk['Item'])
-    idx = df_stk[df_stk['Item']==item].index[0]
-    q = st.number_input("Qté", 1, 100)
-    c1, c2 = st.columns(2)
-    if c1.button("SORTIE"): 
-        st.session_state.stock.at[idx, 'Qte'] -= q
-        st.rerun()
-    if c2.button("ENTRÉE"):
-        st.session_state.stock.at[idx, 'Qte'] += q
+    for msg in st.session_state.history:
+        if msg['role'] == 'user':
+            st.markdown(f"<div style='background:#e3f2fd;padding:15px;border-radius:10px;text-align:right'><b>Dr. Samaké :</b><br>{msg['text']}</div>", unsafe_allow_html=True)
+        else:
+            st.markdown(f"<div class='ai-box'><b>🧬 SAMProb :</b><br>{msg['text']}</div>", unsafe_allow_html=True)
+            
+    user_input = st.chat_input("Ex: Patient 30 ans, AVP Moto, Douleur hanche droite, TA 9/6...")
+    if user_input:
+        st.session_state.history.append({"role": "user", "text": user_input})
+        with st.spinner("Analyse du cas en cours..."):
+            resp = st.session_state.brain.analyze(user_input)
+            st.session_state.history.append({"role": "ai", "text": resp})
         st.rerun()
 
-# 6. EXPORT
-elif menu == "💾 EXPORT RECHERCHE":
-    st.title("EXPORT")
+# --- MODULE 2 : VISION (X-RAY / PLAIE) ---
+elif menu == "👁️ ANALYSE VISUELLE":
+    st.title("VISION PAR ORDINATEUR")
+    st.write("Analysez Radios, ECG, ou Plaies.")
+    
+    mode = st.radio("Source", ["📸 Caméra", "📁 Importer"], horizontal=True)
+    img_file = st.camera_input("Scanner") if mode == "📸 Caméra" else st.file_uploader("Fichier")
+    
+    if img_file:
+        img = Image.open(img_file)
+        st.image(img, caption="Image capturée", width=300)
+        
+        type_analyse = st.selectbox("Type d'analyse", ["Traumatologie (Radio/Scanner)", "Dermatologie (Plaie/Infection)", "Cardiologie (ECG)"])
+        
+        if st.button("LANCER L'ANALYSE EXPERTE"):
+            with st.spinner("Lecture de l'image..."):
+                prompt = f"Analyse cette image médicale en tant qu'expert en {type_analyse}. Décris les anomalies visibles et propose une conclusion."
+                res = st.session_state.brain.analyze(prompt, img)
+                st.markdown(f"<div class='ai-box'>{res}</div>", unsafe_allow_html=True)
+
+# --- MODULE 3 : CALCULATEURS (NOUVEAU) ---
+elif menu == "🧮 CALCULATEURS":
+    st.title("SCORES CLINIQUES")
+    
+    tab1, tab2 = st.tabs(["GLASGOW (GCS)", "WELLS (TVP)"])
+    
+    with tab1:
+        st.subheader("Score de Glasgow")
+        yeux = st.selectbox("Ouverture des Yeux", ["Spontanée (4)", "À la voix (3)", "À la douleur (2)", "Nulle (1)"])
+        verbal = st.selectbox("Réponse Verbale", ["Orientée (5)", "Confuse (4)", "Inappropriée (3)", "Incompréhensible (2)", "Nulle (1)"])
+        moteur = st.selectbox("Réponse Motrice", ["Ordre (6)", "Orientée (5)", "Evitement (4)", "Flexion (3)", "Extension (2)", "Nulle (1)"])
+        
+        score = int(yeux[-2]) + int(verbal[-2]) + int(moteur[-2])
+        
+        st.metric("SCORE GCS", f"{score} / 15")
+        if score <= 8: st.error("⚠️ COMA GRAVE -> INTUBATION ?")
+        elif score <= 12: st.warning("⚠️ TRAUMA MODÉRÉ")
+        else: st.success("✅ CONSCIENCE NORMALE/LÉGÈRE")
+
+    with tab2:
+        st.subheader("Score de Wells (Suspicion TVP)")
+        s1 = st.checkbox("Cancer actif (+1)")
+        s2 = st.checkbox("Paralysie / Immobilisation plâtrée (+1)")
+        s3 = st.checkbox("Alitement > 3j ou Chirurgie majeure < 4 sem (+1)")
+        s4 = st.checkbox("Douleur sur trajet veineux (+1)")
+        s5 = st.checkbox("Oedème tout le membre (+1)")
+        s6 = st.checkbox("Oedème mollet > 3cm par rapport à l'autre (+1)")
+        
+        total_wells = sum([s1, s2, s3, s4, s5, s6])
+        st.metric("SCORE WELLS", total_wells)
+        if total_wells >= 2: st.error("PROBABILITÉ FORTE -> ÉCHO DOPPLER")
+        else: st.success("PROBABILITÉ FAIBLE -> D-DIMÈRES")
+
+# --- MODULE 4 : PROTOCOLES (OFFLINE) ---
+elif menu == "⚡ PROTOCOLES URGENCE":
+    st.title("PROTOCOLES VITAUX")
+    st.caption("Accessibles hors-connexion")
+    
     c1, c2 = st.columns(2)
     with c1:
-        st.download_button("CSV PATIENTS", df_pat.drop(columns=['Image_Radio']).to_csv(index=False).encode('utf-8'), "pat.csv", "text/csv")
+        if st.button("❤️ ARRÊT CARDIAQUE (ACLS)"):
+            st.markdown("""
+            <div class='urgence-box'>
+            <h3>ALGORITHME ACR</h3>
+            1. <b>MCE</b> : 100-120/min (30:2)<br>
+            2. <b>CHOC</b> : Si FV/TV sans pouls (Biphasique 200J)<br>
+            3. <b>ADRÉNALINE</b> : 1mg IV toutes les 3-5 min<br>
+            4. <b>AMIODARONE</b> : 300mg IV après 3e choc
+            </div>
+            """, unsafe_allow_html=True)
+            
     with c2:
-        st.download_button("CSV FINANCES", df_fin.to_csv(index=False).encode('utf-8'), "fin.csv", "text/csv")
+        if st.button("💉 CHOC ANAPHYLACTIQUE"):
+            st.markdown("""
+            <div class='urgence-box'>
+            <h3>CHOC ANAPHYLAXIE</h3>
+            1. <b>ADRÉNALINE IM</b> (Cuisse)<br>
+               -> 0.5 mg (Adulte) | 0.01 mg/kg (Enfant)<br>
+            2. <b>REMPLISSAGE</b> : Cristalloïdes 20ml/kg<br>
+            3. <b>CORTICOÏDES</b> : Solumedrol 1-2 mg/kg
+            </div>
+            """, unsafe_allow_html=True)
+
+# --- MODULE 5 : CONFIG ---
+elif menu == "⚙️ CONFIGURATION":
+    st.title("RÉGLAGES")
+    api_key = st.text_input("CLÉ API GOOGLE (Gemini)", type="password")
+    if api_key:
+        if st.session_state.brain.connect(api_key):
+            st.success("✅ CERVEAU IA CONNECTÉ ET PRÊT")
+        else:
+            st.error("❌ Clé invalide")
+
